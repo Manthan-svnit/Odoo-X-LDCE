@@ -41,9 +41,10 @@
 
 *Append-only, newest on top.*
 
-| Date | Who (person or AI) | What was completed | Files/modules | Notes |
+| Date | What was completed | Files/modules | Notes |
 |---|---|---|---|---|
-| — | — | *(no entries yet)* | — | — |
+| 2026-08-22 | Optimized Prisma schema: proper `@db.Time(6)` for activity times, `@db.DoublePrecision` for lat/lng, added missing FK indexes (`copiedFromTripId`, `tripActivityId`), fixed `SavedPlace` cascade per Architecture.md | `prisma/schema.prisma`, `.env` | Schema pushed to Neon PostgreSQL — all 9 tables synced |
+| 2026-08-22 |  Created initial Prisma schema with all 9 models | `prisma/schema.prisma` | `users`, `trips`, `trip_stops`, `places`, `trip_activities`, `expenses`, `budgets`, `saved_places`, `ai_suggestions` per Architecture.md §6 |
 
 ---
 
@@ -53,7 +54,7 @@
 
 | Area | Status | Owner | Last updated |
 |---|---|---|---|
-| Repo scaffold + Prisma schema/migration | Not started | — | — |
+| Repo scaffold + Prisma schema/migration | Done | AI | 2026-08-22 |
 | Auth (register/login/refresh/reset) | Not started | — | — |
 | Screens 1–5 (auth, dashboard, trips list, create trip) | Not started | — | — |
 | Screens 6–7 (Itinerary Builder / View) | Not started | — | — |
