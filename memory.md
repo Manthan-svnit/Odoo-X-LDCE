@@ -41,7 +41,7 @@
 
 *Append-only, newest on top.*
 
-| Date | Who (person or AI) | What was completed | Files/modules | Notes |
+| Date | What was completed | Files/modules | Notes |
 |---|---|---|---|---|
 | 2026-08-22 | AI (Antigravity) | Phase 14: Admin dashboard (stats, popular cities, recent trips) | `src/app/(app)/admin/page.tsx` | Optional screen, mock data |
 | 2026-08-22 | AI (Antigravity) | Phase 13: Community page + shared trip public view | `src/app/(app)/community/page.tsx`, `src/app/shared/[token]/page.tsx` | Search, copy trip actions |
@@ -56,6 +56,8 @@
 | 2026-08-22 | AI (Antigravity) | Phase 3: App layout + Dashboard | `src/app/(app)/layout.tsx`, `src/app/(app)/dashboard/page.tsx`, Sidebar, Navbar, TripCard, DestinationCard | Sidebar nav, mobile hamburger, stats cards |
 | 2026-08-22 | AI (Antigravity) | Phase 2: Login + Registration pages | `src/app/(auth)/login/page.tsx`, `src/app/(auth)/register/page.tsx` | Split layout, mock auth |
 | 2026-08-22 | AI (Antigravity) | Phase 1: Design system + UI components + types + mock data | `tailwind.config.ts`, `globals.css`, `layout.tsx`, `src/types/index.ts`, `src/lib/mockData.ts`, `src/components/ui/*` | Inter font, design tokens, Button/Input/Card/Modal/Badge/EmptyState/Skeleton/SearchBar |
+| 2026-08-22 | Manu | Optimized Prisma schema: proper `@db.Time(6)` for activity times, `@db.DoublePrecision` for lat/lng, added missing FK indexes (`copiedFromTripId`, `tripActivityId`), fixed `SavedPlace` cascade per Architecture.md | `prisma/schema.prisma`, `.env` | Schema pushed to Neon PostgreSQL — all 9 tables synced |
+| 2026-08-22 | Manu | Created initial Prisma schema with all 9 models | `prisma/schema.prisma` | `users`, `trips`, `trip_stops`, `places`, `trip_activities`, `expenses`, `budgets`, `saved_places`, `ai_suggestions` per Architecture.md §6 |
 
 ---
 
@@ -65,7 +67,7 @@
 
 | Area | Status | Owner | Last updated |
 |---|---|---|---|
-| Repo scaffold + Prisma schema/migration | In progress | Manu | 2026-08-22 |
+| Repo scaffold + Prisma schema/migration | Done | Manu | 2026-08-22 |
 | Auth (register/login/refresh/reset) | Done (UI only) | AI | 2026-08-22 |
 | Screens 1–5 (auth, dashboard, trips list, create trip) | Done (UI only) | AI | 2026-08-22 |
 | Screens 6–7 (Itinerary Builder / View) | Done (UI only) | AI | 2026-08-22 |

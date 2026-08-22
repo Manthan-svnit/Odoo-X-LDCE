@@ -26,6 +26,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
 
 # vercel
@@ -37,9 +38,18 @@ next-env.d.ts
 
 /src/generated/prisma
 
+<<<<<<< HEAD
+=======
+package-lock.json
+
+>>>>>>> e46ccf310bf45e0ec7bd2b68177895dc876bee44
 # Project Documentation (Warning: Teammates won't see these!)
 Rules.md
 PRD.md
 Phases.md
 Architecture.md
+<<<<<<< HEAD
 Design.md
+=======
+Design.md
+>>>>>>> e46ccf310bf45e0ec7bd2b68177895dc876bee44
