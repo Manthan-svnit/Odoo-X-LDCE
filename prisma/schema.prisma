@@ -7,7 +7,244 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ──────────────────────────────────────────────
+// Enums (Architecture.md § 6)
+// ──────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TripStatus {
+  DRAFT
+  PLANNED
+  COMPLETED
+}
+
+enum PlaceType {
+  CITY
+  ACTIVITY
+}
+
+enum ActivityStatus {
+  PLANNED
+  COMPLETED
+  CANCELLED
+}
+
+enum ExpenseCategory {
+  TRANSPORT
+  STAY
+  ACTIVITY
+  MEALS
+  OTHER
+}
+
+enum BudgetCategory {
+  TRANSPORT
+  STAY
+  ACTIVITY
+  MEALS
+  OTHER
+  OVERALL
+}
+
+enum AISuggestionStatus {
+  PENDING
+  APPLIED
+  DISCARDED
+  FAILED
+}
+
+// ──────────────────────────────────────────────
+// Models (Architecture.md § 6.1–6.9)
+// ──────────────────────────────────────────────
+
+/// § 6.1 users — soft-deletable user accounts
 model User {
-  id    String @id @default(cuid())
-  email String @unique
+  id                 String       @id @default(uuid())
+  name               String
+  email              String       @unique
+  passwordHash       String       @map("password_hash")
+  avatarUrl          String?      @map("avatar_url")
+  languagePreference String       @default("en") @map("language_preference")
+  role               Role         @default(USER)
+  preferences        Json?        // jsonb — interests, default currency, notification prefs
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+  deletedAt          DateTime?    @map("deleted_at")
+
+  trips              Trip[]
+  savedPlaces        SavedPlace[]
+
+  @@map("users")
+}
+
+/// § 6.2 trips — soft-deletable trip container
+model Trip {
+  id               String       @id @default(uuid())
+  userId           String       @map("user_id")
+  user             User         @relation(fields: [userId], references: [id])
+  name             String
+  description      String?
+  coverPhotoUrl    String?      @map("cover_photo_url")
+  startDate        DateTime     @map("start_date") @db.Date
+  endDate          DateTime     @map("end_date") @db.Date
+  status           TripStatus   @default(DRAFT)
+  currency         String       @default("INR") @db.VarChar(3)
+  isPublic         Boolean      @default(false) @map("is_public")
+  shareToken       String?      @unique @map("share_token")
+  copiedFromTripId String?      @map("copied_from_trip_id")
+  copiedFromTrip   Trip?        @relation("TripLineage", fields: [copiedFromTripId], references: [id], onDelete: SetNull)
+  copies           Trip[]       @relation("TripLineage")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  deletedAt        DateTime?    @map("deleted_at")
+
+  stops            TripStop[]
+  expenses         Expense[]
+  budgets          Budget[]
+  aiSuggestions    AISuggestion[]
+
+  @@index([userId])
+  @@index([copiedFromTripId])
+  @@map("trips")
+}
+
+/// § 6.3 trip_stops — city stops within a trip, cascades to activities on delete
+model TripStop {
+  id          String         @id @default(uuid())
+  tripId      String         @map("trip_id")
+  trip        Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  cityPlaceId String         @map("city_place_id")
+  cityPlace   Place          @relation(fields: [cityPlaceId], references: [id])
+  orderIndex  Int            @map("order_index")
+  startDate   DateTime       @map("start_date") @db.Date
+  endDate     DateTime       @map("end_date") @db.Date
+  budgetLimit Decimal?       @map("budget_limit") @db.Decimal(12, 2)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  activities  TripActivity[]
+
+  @@index([tripId, orderIndex])
+  @@index([cityPlaceId])
+  @@map("trip_stops")
+}
+
+/// § 6.4 places — unified city/activity cache from external providers
+model Place {
+  id               String         @id @default(uuid())
+  type             PlaceType
+  externalProvider String         @map("external_provider")
+  externalPlaceId  String         @map("external_place_id")
+  name             String
+  country          String?
+  region           String?
+  category         String?
+  latitude         Float?         @db.DoublePrecision
+  longitude        Float?         @db.DoublePrecision
+  costIndex        Decimal?       @map("cost_index") @db.Decimal(6, 2)
+  rating           Decimal?       @db.Decimal(3, 2)
+  imageUrl         String?        @map("image_url")
+  metadata         Json?          // jsonb — raw extra fields from provider
+  cachedAt         DateTime       @default(now()) @map("cached_at")
+
+  tripStops        TripStop[]
+  tripActivities   TripActivity[]
+  savedByUsers     SavedPlace[]
+
+  @@unique([externalProvider, externalPlaceId])
+  @@map("places")
+}
+
+/// § 6.5 trip_activities — scheduled activities within a stop (many-to-many join)
+model TripActivity {
+  id            String         @id @default(uuid())
+  tripStopId    String         @map("trip_stop_id")
+  tripStop      TripStop       @relation(fields: [tripStopId], references: [id], onDelete: Cascade)
+  placeId       String         @map("place_id")
+  place         Place          @relation(fields: [placeId], references: [id])
+  scheduledDate DateTime       @map("scheduled_date") @db.Date
+  startTime     DateTime?      @map("start_time") @db.Time(6)
+  endTime       DateTime?      @map("end_time") @db.Time(6)
+  orderIndex    Int            @map("order_index")
+  estimatedCost Decimal?       @map("estimated_cost") @db.Decimal(10, 2)
+  actualCost    Decimal?       @map("actual_cost") @db.Decimal(10, 2)
+  notes         String?
+  status        ActivityStatus @default(PLANNED)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  expenses      Expense[]
+
+  @@index([tripStopId, scheduledDate, orderIndex])
+  @@index([placeId])
+  @@map("trip_activities")
+}
+
+/// § 6.6 expenses — cost line items (flights, accommodation, misc.)
+model Expense {
+  id             String          @id @default(uuid())
+  tripId         String          @map("trip_id")
+  trip           Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  tripActivityId String?         @map("trip_activity_id")
+  tripActivity   TripActivity?   @relation(fields: [tripActivityId], references: [id], onDelete: SetNull)
+  category       ExpenseCategory
+  description    String?
+  amount         Decimal         @db.Decimal(10, 2)
+  currency       String          @default("INR") @db.VarChar(3)
+  expenseDate    DateTime?       @map("expense_date") @db.Date
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  @@index([tripId])
+  @@index([tripActivityId])
+  @@map("expenses")
+}
+
+/// § 6.7 budgets — per-category spending limits for over-budget detection
+model Budget {
+  id          String         @id @default(uuid())
+  tripId      String         @map("trip_id")
+  trip        Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  category    BudgetCategory
+  limitAmount Decimal        @map("limit_amount") @db.Decimal(12, 2)
+  currency    String         @default("INR") @db.VarChar(3)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  @@unique([tripId, category])
+  @@map("budgets")
+}
+
+/// § 6.8 saved_places — many-to-many bookmarking (users ↔ places)
+model SavedPlace {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  placeId   String   @map("place_id")
+  place     Place    @relation(fields: [placeId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, placeId])
+  @@index([userId])
+  @@index([placeId])
+  @@map("saved_places")
+}
+
+/// § 6.9 ai_suggestions — audit trail for AI-generated itinerary drafts
+model AISuggestion {
+  id          String             @id @default(uuid())
+  tripId      String             @map("trip_id")
+  trip        Trip               @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  promptInput Json               @map("prompt_input")
+  rawResponse Json?              @map("raw_response")
+  status      AISuggestionStatus @default(PENDING)
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  @@index([tripId])
+  @@map("ai_suggestions")
 }

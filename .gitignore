@@ -36,3 +36,10 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Project Documentation (Warning: Teammates won't see these!)
+Rules.md
+PRD.md
+Phases.md
+Architecture.md
+Design.md
