@@ -19,6 +19,7 @@ export default function SharedTripPage({
   const trip = mockTrips.find(
     (t) => t.shareToken === params.token || t.id === params.token
   );
+  
 
   if (!trip) {
     return (
