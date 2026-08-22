@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -14,8 +14,6 @@ import {
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
-import { getTrip, formatDateShort, formatCurrency, formatDate } from "@/lib/mockData";
-import { TripActivity } from "@/types";
 
 type ViewMode = "day" | "city";
 
@@ -24,8 +22,30 @@ export default function ItineraryViewPage({
 }: {
   params: { tripId: string };
 }) {
-  const trip = getTrip(params.tripId);
+  const [trip, setTrip] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("day");
+
+  useEffect(() => {
+    const fetchTrip = async () => {
+      try {
+        const res = await fetch(`/api/trips/${params.tripId}`);
+        if (res.ok) {
+           const data = await res.json();
+           setTrip(data.data);
+        }
+      } catch (error) {
+        console.error("Fetch trip view error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchTrip();
+  }, [params.tripId]);
+
+  if (isLoading) {
+      return <div className="max-w-4xl mx-auto text-center py-12 text-neutral-500">Loading trip details...</div>;
+  }
 
   if (!trip) {
     return (
@@ -41,18 +61,22 @@ export default function ItineraryViewPage({
   }
 
   // Group activities by day
-  const activitiesByDay = new Map<string, { activity: TripActivity; city: string }[]>();
-  trip.stops.forEach((stop) => {
-    stop.activities.forEach((activity) => {
-      const date = activity.scheduledDate;
-      if (!activitiesByDay.has(date)) activitiesByDay.set(date, []);
-      activitiesByDay.get(date)!.push({ activity, city: stop.place.name });
-    });
-  });
+  const activitiesByDay = new Map<string, { activity: any; city: string }[]>();
+  
+  if (trip.stops) {
+      trip.stops.forEach((stop: any) => {
+        if (stop.activities) {
+            stop.activities.forEach((activity: any) => {
+              const date = new Date(activity.scheduledDate).toISOString().split("T")[0];
+              if (!activitiesByDay.has(date)) activitiesByDay.set(date, []);
+              activitiesByDay.get(date)!.push({ activity, city: stop.cityPlace?.name || "Unknown City" });
+            });
+        }
+      });
+  }
 
   const sortedDays = Array.from(activitiesByDay.keys()).sort();
-
-  const routeString = trip.stops.map((s) => s.place.name).join(" → ");
+  const routeString = trip.stops?.map((s: any) => s.cityPlace?.name).filter(Boolean).join(" → ") || "No destinations added";
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -74,7 +98,9 @@ export default function ItineraryViewPage({
             </p>
             <div className="flex items-center gap-2 mt-2 text-sm text-neutral-500">
               <Calendar className="w-4 h-4" />
-              {formatDateShort(trip.startDate)} → {formatDateShort(trip.endDate)}
+              {new Date(trip.startDate).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })} 
+              {" "}→{" "} 
+              {new Date(trip.endDate).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}
             </div>
           </div>
           <div className="flex gap-2">
@@ -147,12 +173,12 @@ export default function ItineraryViewPage({
                           Day {dayIndex + 1}
                         </p>
                         <p className="text-xs text-neutral-500">
-                          {formatDate(date)}
+                          {new Date(date).toLocaleDateString("en-IN", { weekday: "long", month: "long", day: "numeric" })}
                         </p>
                       </div>
                     </div>
                     <span className="text-sm font-medium text-neutral-600">
-                      {formatCurrency(dayCost)}
+                      ${dayCost.toLocaleString()}
                     </span>
                   </div>
 
@@ -167,7 +193,7 @@ export default function ItineraryViewPage({
                         <div className="absolute -left-[33px] top-5 w-3 h-3 bg-primary rounded-full border-2 border-white" />
 
                         <div className="flex items-start gap-3">
-                          {activity.place.imageUrl && (
+                          {activity.place?.imageUrl && (
                             <div className="w-14 h-14 rounded-lg overflow-hidden bg-neutral-100 flex-shrink-0">
                               <img
                                 src={activity.place.imageUrl}
@@ -178,14 +204,14 @@ export default function ItineraryViewPage({
                           )}
                           <div className="flex-1 min-w-0">
                             <h4 className="text-sm font-semibold text-neutral-900">
-                              {activity.place.name}
+                              {activity.place?.name}
                             </h4>
                             <div className="flex items-center gap-3 mt-1 text-xs text-neutral-500">
                               {activity.startTime && (
                                 <span className="flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
-                                  {activity.startTime}
-                                  {activity.endTime && ` – ${activity.endTime}`}
+                                  {new Date(activity.startTime).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}
+                                  {activity.endTime && ` – ${new Date(activity.endTime).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`}
                                 </span>
                               )}
                               <span className="flex items-center gap-1">
@@ -193,17 +219,17 @@ export default function ItineraryViewPage({
                                 {city}
                               </span>
                             </div>
-                            {activity.place.category && (
+                            {activity.place?.category && (
                               <Badge variant="default" className="mt-2">
                                 {activity.place.category}
                               </Badge>
                             )}
                           </div>
                           <div className="text-right flex-shrink-0">
-                            {activity.estimatedCost !== undefined &&
+                            {activity.estimatedCost !== undefined && activity.estimatedCost !== null &&
                             activity.estimatedCost > 0 ? (
                               <span className="text-sm font-medium text-neutral-700">
-                                {formatCurrency(activity.estimatedCost)}
+                                ${activity.estimatedCost.toLocaleString()}
                               </span>
                             ) : (
                               <span className="text-xs text-neutral-400">
@@ -231,13 +257,13 @@ export default function ItineraryViewPage({
         )
       ) : (
         /* By City View */
-        trip.stops.length > 0 ? (
+        trip.stops?.length > 0 ? (
           <div className="space-y-6">
-            {trip.stops.map((stop) => {
-              const stopCost = stop.activities.reduce(
-                (sum, a) => sum + (a.estimatedCost || 0),
+            {trip.stops.map((stop: any) => {
+              const stopCost = stop.activities?.reduce(
+                (sum: number, a: any) => sum + (a.estimatedCost || 0),
                 0
-              );
+              ) || 0;
 
               return (
                 <div
@@ -249,28 +275,28 @@ export default function ItineraryViewPage({
                       <MapPin className="w-5 h-5 text-primary" />
                       <div>
                         <h3 className="font-semibold text-neutral-900">
-                          {stop.place.name}
+                          {stop.cityPlace?.name}
                         </h3>
                         <p className="text-xs text-neutral-500">
-                          {formatDateShort(stop.startDate)} →{" "}
-                          {formatDateShort(stop.endDate)} ·{" "}
-                          {stop.place.country}
+                          {new Date(stop.startDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} →{" "}
+                          {new Date(stop.endDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} ·{" "}
+                          {stop.cityPlace?.country}
                         </p>
                       </div>
                     </div>
                     <span className="text-sm font-medium text-primary">
-                      {formatCurrency(stopCost)}
+                      ${stopCost.toLocaleString()}
                     </span>
                   </div>
 
                   <div className="p-4 space-y-2">
-                    {stop.activities.length > 0 ? (
-                      stop.activities.map((activity) => (
+                    {stop.activities?.length > 0 ? (
+                      stop.activities.map((activity: any) => (
                         <div
                           key={activity.id}
                           className="flex items-center gap-3 p-3 rounded-lg bg-neutral-50"
                         >
-                          {activity.place.imageUrl && (
+                          {activity.place?.imageUrl && (
                             <div className="w-10 h-10 rounded-lg overflow-hidden bg-neutral-200 flex-shrink-0">
                               <img
                                 src={activity.place.imageUrl}
@@ -281,21 +307,21 @@ export default function ItineraryViewPage({
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-neutral-900">
-                              {activity.place.name}
+                              {activity.place?.name}
                             </p>
                             <p className="text-xs text-neutral-500">
                               {activity.startTime &&
-                                `${activity.startTime}${
+                                `${new Date(activity.startTime).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}${
                                   activity.endTime
-                                    ? ` – ${activity.endTime}`
+                                    ? ` – ${new Date(activity.endTime).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`
                                     : ""
                                 } · `}
-                              {formatDate(activity.scheduledDate)}
+                              {new Date(activity.scheduledDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
                             </p>
                           </div>
                           <span className="text-sm text-neutral-600">
                             {activity.estimatedCost
-                              ? formatCurrency(activity.estimatedCost)
+                              ? `$${activity.estimatedCost.toLocaleString()}`
                               : "Free"}
                           </span>
                         </div>

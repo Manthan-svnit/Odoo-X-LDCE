@@ -1,30 +1,51 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, Users, Calendar, MapPin, Copy, Eye } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
-import { mockCommunityTrips, mockTrips, formatDateShort } from "@/lib/mockData";
-import { Trip } from "@/types";
+import { useAuthStore } from "@/stores/authStore";
 
 export default function CommunityPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [trips, setTrips] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuthStore();
 
-  // Combine community trips + public user trips
-  const publicTrips = [
-    ...mockTrips.filter((t) => t.isPublic),
-    ...mockCommunityTrips,
-  ];
+  useEffect(() => {
+     const fetchCommunityTrips = async () => {
+         try {
+             const res = await fetch(`/api/community?q=${encodeURIComponent(searchQuery)}`);
+             if (res.ok) {
+                 const data = await res.json();
+                 setTrips(data.data || []);
+             }
+         } catch (e) {
+             console.error("Failed to fetch community trips", e);
+         } finally {
+             setIsLoading(false);
+         }
+     };
+     
+     // Debounce the fetch slightly
+     const timeoutId = setTimeout(() => fetchCommunityTrips(), 300);
+     return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
-  const filteredTrips = publicTrips.filter((trip) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      trip.name.toLowerCase().includes(q) ||
-      trip.description?.toLowerCase().includes(q) ||
-      trip.stops.some((s) => s.place.name.toLowerCase().includes(q))
-    );
-  });
+  const copyTrip = async (tripId: string) => {
+      try {
+          const res = await fetch(`/api/trips/${tripId}/copy`, {
+              method: "POST"
+          });
+          if (res.ok) {
+              alert("Trip copied successfully! Check 'My Trips'.");
+          } else {
+              alert("Failed to copy trip.");
+          }
+      } catch (e) {
+          console.error("Copy trip error:", e);
+      }
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -52,16 +73,17 @@ export default function CommunityPage() {
       <div className="flex items-center gap-4 text-sm text-neutral-500">
         <span className="flex items-center gap-1.5">
           <Users className="w-4 h-4" />
-          {filteredTrips.length} public{" "}
-          {filteredTrips.length === 1 ? "trip" : "trips"}
+          {trips.length} public {trips.length === 1 ? "trip" : "trips"}
         </span>
       </div>
 
       {/* Trip Feed */}
-      {filteredTrips.length > 0 ? (
+      {isLoading ? (
+          <div className="text-center py-12 text-neutral-500">Loading community trips...</div>
+      ) : trips.length > 0 ? (
         <div className="space-y-4">
-          {filteredTrips.map((trip) => (
-            <CommunityTripCard key={trip.id} trip={trip} />
+          {trips.map((trip) => (
+            <CommunityTripCard key={trip.id} trip={trip} onCopy={() => copyTrip(trip.id)} />
           ))}
         </div>
       ) : (
@@ -78,9 +100,9 @@ export default function CommunityPage() {
   );
 }
 
-function CommunityTripCard({ trip }: { trip: Trip }) {
+function CommunityTripCard({ trip, onCopy }: { trip: any; onCopy: () => void }) {
   const cityNames =
-    trip.stops.map((s) => s.place.name).join(" • ") || "Multiple destinations";
+    trip.stops?.map((s: any) => s.cityPlace?.name).filter(Boolean).join(" • ") || "Multiple destinations";
 
   const startDate = new Date(trip.startDate);
   const endDate = new Date(trip.endDate);
@@ -124,8 +146,8 @@ function CommunityTripCard({ trip }: { trip: Trip }) {
             <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
               <span className="flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" />
-                {formatDateShort(trip.startDate)} →{" "}
-                {formatDateShort(trip.endDate)}
+                {startDate.toLocaleDateString("en-IN", { month: "short", day: "numeric" })} →{" "}
+                {endDate.toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
               </span>
               <span>{days} days</span>
               <span className="flex items-center gap-1">
@@ -144,7 +166,7 @@ function CommunityTripCard({ trip }: { trip: Trip }) {
               View Trip
             </a>
             <button
-              onClick={() => alert(`Trip "${trip.name}" copied to your trips!`)}
+              onClick={onCopy}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent border border-accent/30 rounded-lg hover:bg-orange-50"
             >
               <Copy className="w-3.5 h-3.5" />

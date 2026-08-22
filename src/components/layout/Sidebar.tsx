@@ -14,6 +14,9 @@ import {
   Globe,
 } from "lucide-react";
 
+import Avatar from "@/components/ui/Avatar";
+import { useAuthStore } from "@/stores/authStore";
+
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "My Trips", href: "/trips", icon: Map },
@@ -25,6 +28,7 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { user, logout } = useAuthStore();
 
   return (
     <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-neutral-200 min-h-screen">
@@ -81,18 +85,29 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="px-4 py-4 border-t border-neutral-200">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-primary-50 rounded-full flex items-center justify-center text-primary text-sm font-semibold">
-            NV
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-neutral-900 truncate">
-              Nisarg Vaghela
-            </p>
-            <p className="text-xs text-neutral-500 truncate">
-              nisarg@example.com
-            </p>
-          </div>
+        <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <Avatar name={user?.name} url={user?.avatarUrl} size="md" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-neutral-900 truncate">
+                  {user?.name || "Guest"}
+                </p>
+                <p className="text-xs text-neutral-500 truncate">
+                  {user?.email || "Not logged in"}
+                </p>
+              </div>
+            </div>
+            {user && (
+              <button
+                onClick={async () => {
+                   await fetch("/api/auth/logout", { method: "POST" });
+                   await logout();
+                }}
+                className="flex w-full items-center justify-center py-2 text-sm text-error bg-red-50 hover:bg-red-100 rounded-lg"
+              >
+                Logout
+              </button>
+            )}
         </div>
       </div>
     </aside>

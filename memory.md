@@ -99,3 +99,19 @@
 |---|---|
 | Manu | Backend / Prisma / DB |
 | AI (Antigravity) | Frontend UI (all screens) |
+
+---
+
+## 8. Database Schema Overview
+
+| Table | Columns |
+|---|---|
+| **users** | id, name, email, password_hash, avatar_url, language_preference, role, preferences, created_at, updated_at, deleted_at, reset_token, reset_token_expires_at |
+| **trips** | id, user_id, name, description, cover_photo_url, start_date, end_date, status, currency, is_public, share_token, copied_from_trip_id, created_at, updated_at, deleted_at |
+| **trip_stops** | id, trip_id, city_place_id, order_index, start_date, end_date, budget_limit, created_at, updated_at |
+| **places** | id, type, external_provider, external_place_id, name, country, region, category, latitude, longitude, cost_index, rating, image_url, metadata, cached_at |
+| **trip_activities** | id, trip_stop_id, place_id, scheduled_date, start_time, end_time, order_index, estimated_cost, actual_cost, notes, status, created_at, updated_at |
+| **expenses** | id, trip_id, trip_activity_id, category, description, amount, currency, expense_date, created_at, updated_at |
+| **budgets** | id, trip_id, category, limit_amount, currency, created_at, updated_at |
+| **saved_places** | id, user_id, place_id, created_at |
+| **ai_suggestions** | id, trip_id, prompt_input, raw_response, status, created_at, updated_at |

@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
 export default function CreateTripPage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -16,6 +17,8 @@ export default function CreateTripPage() {
     endDate: "",
     description: "",
   });
+  const [coverPhoto, setCoverPhoto] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const updateField = (field: string, value: string) => {
@@ -28,6 +31,14 @@ export default function CreateTripPage() {
       });
     }
   };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+     if (e.target.files && e.target.files[0]) {
+         const file = e.target.files[0];
+         setCoverPhoto(file);
+         setCoverPreview(URL.createObjectURL(file));
+     }
+  }
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -49,11 +60,41 @@ export default function CreateTripPage() {
     }
 
     setIsLoading(true);
-    // Mock create trip — replace with real API
-    await new Promise((res) => setTimeout(res, 600));
-    setIsLoading(false);
-    // Redirect to builder for the new trip
-    router.push("/trips/trip-1/builder");
+    try {
+        let coverPhotoUrl = "";
+        
+        if (coverPhoto) {
+            const formData = new FormData();
+            formData.append("file", coverPhoto);
+            const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+            if (uploadRes.ok) {
+                const uploadData = await uploadRes.json();
+                coverPhotoUrl = uploadData.data.url;
+            }
+        }
+
+        const res = await fetch("/api/trips", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                ...form,
+                coverPhotoUrl: coverPhotoUrl || undefined,
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+           throw new Error(data.error?.message || "Failed to create trip");
+        }
+
+        router.push(`/trips/${data.data.id}/view`);
+    } catch (error: any) {
+        console.error("Create trip error:", error);
+        alert(error.message);
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   return (
@@ -84,6 +125,32 @@ export default function CreateTripPage() {
             error={errors.name}
             required
           />
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-neutral-700">Cover Photo</label>
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className="relative flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-neutral-300 rounded-xl bg-neutral-50 hover:bg-neutral-100 cursor-pointer overflow-hidden transition-colors"
+            >
+              {coverPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={coverPreview} alt="Cover preview" className="w-full h-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center justify-center pt-5 pb-6 text-neutral-500">
+                  <ImageIcon className="w-8 h-8 mb-2" />
+                  <p className="text-sm font-medium">Click to upload cover photo</p>
+                  <p className="text-xs">SVG, PNG, JPG or GIF</p>
+                </div>
+              )}
+              <input 
+                ref={fileInputRef}
+                type="file" 
+                className="hidden" 
+                accept="image/*"
+                onChange={handlePhotoSelect}
+              />
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input

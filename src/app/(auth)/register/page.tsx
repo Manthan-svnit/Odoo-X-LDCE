@@ -7,8 +7,11 @@ import { Globe, MapPin, Plane } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
+import { useAuthStore } from "@/stores/authStore";
+
 export default function RegisterPage() {
   const router = useRouter();
+  const fetchMe = useAuthStore((state) => state.fetchMe);
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -40,10 +43,37 @@ export default function RegisterPage() {
     }
 
     setIsLoading(true);
-    // Mock registration — replace with real auth API
-    await new Promise((res) => setTimeout(res, 800));
-    setIsLoading(false);
-    router.push("/dashboard");
+    try {
+      const name = `${form.firstName} ${form.lastName}`.trim();
+      const additionalInfo = {
+         phone: form.phone,
+         city: form.city,
+         country: form.country,
+      };
+
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+           name,
+           email: form.email,
+           password: form.password,
+           additionalInfo: JSON.stringify(additionalInfo),
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error?.message || "Registration failed");
+      }
+
+      await fetchMe();
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

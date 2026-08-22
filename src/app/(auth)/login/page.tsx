@@ -7,8 +7,11 @@ import { Globe, MapPin, Plane } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
+import { useAuthStore } from "@/stores/authStore";
+
 export default function LoginPage() {
   const router = useRouter();
+  const fetchMe = useAuthStore((state) => state.fetchMe);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -24,10 +27,25 @@ export default function LoginPage() {
     }
 
     setIsLoading(true);
-    // Mock login — replace with real auth API
-    await new Promise((res) => setTimeout(res, 800));
-    setIsLoading(false);
-    router.push("/dashboard");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error?.message || "Login failed");
+      }
+      
+      await fetchMe();
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -115,7 +133,7 @@ export default function LoginPage() {
 
             <div className="flex justify-end">
               <Link
-                href="#"
+                href="/forgot-password"
                 className="text-sm text-primary hover:text-primary-dark font-medium"
               >
                 Forgot password?

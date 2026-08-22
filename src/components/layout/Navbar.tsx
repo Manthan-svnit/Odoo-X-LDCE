@@ -16,6 +16,9 @@ import {
   Plus,
 } from "lucide-react";
 
+import Avatar from "@/components/ui/Avatar";
+import { useAuthStore } from "@/stores/authStore";
+
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "My Trips", href: "/trips", icon: Map },
@@ -28,6 +31,7 @@ const navItems = [
 export default function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, logout } = useAuthStore();
 
   return (
     <>
@@ -126,18 +130,30 @@ export default function Navbar() {
             </div>
 
             <div className="px-4 py-4 mt-auto border-t border-neutral-200">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-primary-50 rounded-full flex items-center justify-center text-primary text-sm font-semibold">
-                  NV
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <Avatar name={user?.name} url={user?.avatarUrl} size="md" />
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900">
+                      {user?.name || "Guest"}
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      {user?.email || "Not logged in"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-neutral-900">
-                    Nisarg Vaghela
-                  </p>
-                  <p className="text-xs text-neutral-500">
-                    nisarg@example.com
-                  </p>
-                </div>
+                {user && (
+                  <button
+                    onClick={async () => {
+                       await fetch("/api/auth/logout", { method: "POST" });
+                       await logout();
+                       setMobileMenuOpen(false);
+                    }}
+                    className="flex w-full items-center justify-center py-2 text-sm text-error bg-red-50 hover:bg-red-100 rounded-lg"
+                  >
+                    Logout
+                  </button>
+                )}
               </div>
             </div>
           </div>

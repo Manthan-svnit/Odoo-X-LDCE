@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
-import { getTrip, getBudgetSummary, formatCurrency, formatDateShort } from "@/lib/mockData";
 import {
   PieChart,
   Pie,
@@ -58,8 +57,38 @@ export default function BudgetPage({
 }: {
   params: { tripId: string };
 }) {
-  const trip = getTrip(params.tripId);
-  const budget = getBudgetSummary(params.tripId);
+  const [trip, setTrip] = useState<any>(null);
+  const [budgets, setBudgets] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBudgetInfo = async () => {
+      try {
+        const [tripRes, budgetRes] = await Promise.all([
+          fetch(`/api/trips/${params.tripId}`),
+          fetch(`/api/trips/${params.tripId}/budgets`),
+        ]);
+
+        if (tripRes.ok) {
+           const data = await tripRes.json();
+           setTrip(data.data);
+        }
+        if (budgetRes.ok) {
+           const data = await budgetRes.json();
+           setBudgets(data.data || []);
+        }
+      } catch (e) {
+        console.error("Failed to load budget info:", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchBudgetInfo();
+  }, [params.tripId]);
+
+  if (isLoading) {
+      return <div className="max-w-5xl mx-auto text-center py-12 text-neutral-500">Loading budget...</div>;
+  }
 
   if (!trip) {
     return (
@@ -74,12 +103,52 @@ export default function BudgetPage({
     );
   }
 
-  const overallLimit = budget.budgetLimits.overall;
-  const isOverBudget = overallLimit > 0 && budget.total > overallLimit;
-  const remaining = overallLimit > 0 ? overallLimit - budget.total : 0;
+  // Calculate budget info
+  const overallLimit = budgets.find(b => b.category === "overall")?.limitAmount || 0;
+  
+  const byCategory: Record<string, number> = {
+      transport: 0,
+      stay: 0,
+      activity: 0,
+      meals: 0,
+      other: 0
+  };
+
+  const byDayMap = new Map<string, number>();
+
+  let totalSpent = 0;
+
+  if (trip.stops) {
+      trip.stops.forEach((stop: any) => {
+          if (stop.activities) {
+              stop.activities.forEach((activity: any) => {
+                  const cost = activity.estimatedCost || 0;
+                  totalSpent += cost;
+
+                  // Simple heuristic for mapping place category to budget category
+                  const cat = activity.place?.category?.toLowerCase() || "other";
+                  let mappedCat = "other";
+                  if (cat.includes("flight") || cat.includes("transport") || cat.includes("train") || cat.includes("bus")) mappedCat = "transport";
+                  else if (cat.includes("hotel") || cat.includes("hostel") || cat.includes("stay") || cat.includes("resort")) mappedCat = "stay";
+                  else if (cat.includes("restaurant") || cat.includes("food") || cat.includes("cafe") || cat.includes("bar")) mappedCat = "meals";
+                  else if (cat.includes("activity") || cat.includes("museum") || cat.includes("park") || cat.includes("attraction")) mappedCat = "activity";
+                  else mappedCat = "other"; // Default all else to other, actually let's just use activity for everything else for now to show data
+                  
+                  byCategory[mappedCat] += cost;
+
+                  const date = new Date(activity.scheduledDate).toISOString().split('T')[0];
+                  if (!byDayMap.has(date)) byDayMap.set(date, 0);
+                  byDayMap.set(date, byDayMap.get(date)! + cost);
+              });
+          }
+      });
+  }
+
+  const isOverBudget = overallLimit > 0 && totalSpent > overallLimit;
+  const remaining = overallLimit > 0 ? overallLimit - totalSpent : 0;
 
   // Pie chart data
-  const pieData = Object.entries(budget.byCategory)
+  const pieData = Object.entries(byCategory)
     .filter(([, value]) => value > 0)
     .map(([key, value]) => ({
       name: CATEGORY_LABELS[key] || key,
@@ -88,13 +157,15 @@ export default function BudgetPage({
     }));
 
   // Bar chart data
-  const barData = budget.byDay.map((d) => ({
-    date: new Date(d.date).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-    }),
-    amount: d.amount,
-  }));
+  const barData = Array.from(byDayMap.entries())
+    .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+    .map(([date, amount]) => ({
+      date: new Date(date).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+      }),
+      amount,
+    }));
 
   // Days count
   const startDate = new Date(trip.startDate);
@@ -102,7 +173,7 @@ export default function BudgetPage({
   const days = Math.ceil(
     (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
   ) + 1;
-  const avgPerDay = days > 0 ? Math.round(budget.total / days) : 0;
+  const avgPerDay = days > 0 ? Math.round(totalSpent / days) : 0;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -117,7 +188,7 @@ export default function BudgetPage({
         </Link>
         <h1 className="text-2xl font-bold text-neutral-900">Trip Budget</h1>
         <p className="text-sm text-neutral-500 mt-1">
-          {formatDateShort(trip.startDate)} → {formatDateShort(trip.endDate)} ·{" "}
+          {new Date(trip.startDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} → {new Date(trip.endDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} ·{" "}
           {days} days
         </p>
       </div>
@@ -132,7 +203,7 @@ export default function BudgetPage({
           </div>
           <p className="text-xs text-neutral-500">Total Estimated</p>
           <p className="text-xl font-bold text-neutral-900">
-            {formatCurrency(budget.total)}
+            ${totalSpent.toLocaleString()}
           </p>
         </div>
 
@@ -147,7 +218,7 @@ export default function BudgetPage({
           </p>
           <p className={`text-xl font-bold ${isOverBudget ? "text-error" : "text-success"}`}>
             {overallLimit > 0
-              ? formatCurrency(Math.abs(remaining))
+              ? `$${Math.abs(remaining).toLocaleString()}`
               : "No limit set"}
           </p>
           {overallLimit > 0 && (
@@ -165,7 +236,7 @@ export default function BudgetPage({
           </div>
           <p className="text-xs text-neutral-500">Avg. Per Day</p>
           <p className="text-xl font-bold text-neutral-900">
-            {formatCurrency(avgPerDay)}
+            ${avgPerDay.toLocaleString()}
           </p>
         </div>
 
@@ -177,7 +248,7 @@ export default function BudgetPage({
           </div>
           <p className="text-xs text-neutral-500">Budget Limit</p>
           <p className="text-xl font-bold text-neutral-900">
-            {overallLimit > 0 ? formatCurrency(overallLimit) : "Not set"}
+            {overallLimit > 0 ? `$${overallLimit.toLocaleString()}` : "Not set"}
           </p>
         </div>
       </div>
@@ -208,7 +279,7 @@ export default function BudgetPage({
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: unknown) => formatCurrency(Number(value))}
+                      formatter={(value: unknown) => `$${Number(value).toLocaleString()}`}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -227,7 +298,7 @@ export default function BudgetPage({
                       <span className="text-neutral-600">{entry.name}</span>
                     </div>
                     <span className="font-medium text-neutral-900">
-                      {formatCurrency(entry.value)}
+                      ${entry.value.toLocaleString()}
                     </span>
                   </div>
                 ))}
@@ -257,10 +328,10 @@ export default function BudgetPage({
                 <YAxis
                   tick={{ fontSize: 11, fill: "#6B7280" }}
                   axisLine={{ stroke: "#E5E7EB" }}
-                  tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => `$${v}`}
                 />
                 <Tooltip
-                  formatter={(value: unknown) => formatCurrency(Number(value))}
+                  formatter={(value: unknown) => `$${Number(value).toLocaleString()}`}
                   labelStyle={{ color: "#111827", fontWeight: 600 }}
                 />
                 <Bar dataKey="amount" fill="#0F766E" radius={[4, 4, 0, 0]} />
@@ -280,9 +351,8 @@ export default function BudgetPage({
           Category Details
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {Object.entries(budget.byCategory).map(([category, amount]) => {
-            const limit =
-              budget.budgetLimits[category as keyof typeof budget.budgetLimits];
+          {Object.entries(byCategory).map(([category, amount]) => {
+            const limit = budgets.find(b => b.category === category)?.limitAmount || 0;
             const isOver = limit > 0 && amount > limit;
             const percentage = limit > 0 ? Math.min((amount / limit) * 100, 100) : 0;
 
@@ -308,13 +378,13 @@ export default function BudgetPage({
                     </p>
                     <p className="text-xs text-neutral-500">
                       {limit > 0
-                        ? `Limit: ${formatCurrency(limit)}`
+                        ? `Limit: $${limit.toLocaleString()}`
                         : "No limit"}
                     </p>
                   </div>
                 </div>
                 <p className="text-lg font-bold text-neutral-900 mb-2">
-                  {formatCurrency(amount)}
+                  ${amount.toLocaleString()}
                 </p>
                 {limit > 0 && (
                   <div className="w-full bg-neutral-100 rounded-full h-1.5">

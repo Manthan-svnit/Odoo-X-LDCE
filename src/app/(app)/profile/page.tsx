@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   MapPin,
   Save,
@@ -10,36 +10,99 @@ import {
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { currentUser } from "@/lib/mockData";
+import { useAuthStore } from "@/stores/authStore";
 
 export default function ProfilePage() {
+  const { user, fetchMe, clearUser } = useAuthStore();
+  
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const prefs = user?.preferences as any || {};
+  
   const [form, setForm] = useState({
-    firstName: currentUser.name.split(" ")[0] || "",
-    lastName: currentUser.name.split(" ").slice(1).join(" ") || "",
-    email: currentUser.email,
-    phone: currentUser.phone || "",
-    city: currentUser.city || "",
-    country: currentUser.country || "",
+    firstName: user?.name?.split(" ")[0] || "",
+    lastName: user?.name?.split(" ").slice(1).join(" ") || "",
+    email: user?.email || "",
+    phone: prefs.phone || "",
+    city: prefs.city || "",
+    country: prefs.country || "",
+    languagePreference: user?.languagePreference || "en",
+    currency: prefs.currency || "INR",
+    isPublicProfile: prefs.isPublicProfile !== false // default true
   });
 
-  const updateField = (field: string, value: string) => {
+  useEffect(() => {
+     if (user) {
+         const p = user.preferences as any || {};
+         setForm({
+            firstName: user.name?.split(" ")[0] || "",
+            lastName: user.name?.split(" ").slice(1).join(" ") || "",
+            email: user.email || "",
+            phone: p.phone || "",
+            city: p.city || "",
+            country: p.country || "",
+            languagePreference: user.languagePreference || "en",
+            currency: p.currency || "INR",
+            isPublicProfile: p.isPublicProfile !== false
+         });
+     }
+  }, [user]);
+
+  const updateField = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = async () => {
     setIsSaving(true);
-    await new Promise((res) => setTimeout(res, 600));
-    setIsSaving(false);
-    setIsEditing(false);
+    try {
+        const res = await fetch("/api/user/profile", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                name: `${form.firstName} ${form.lastName}`.trim(),
+                languagePreference: form.languagePreference,
+                preferences: {
+                    phone: form.phone,
+                    city: form.city,
+                    country: form.country,
+                    currency: form.currency,
+                    isPublicProfile: form.isPublicProfile
+                }
+            })
+        });
+        if (res.ok) {
+            await fetchMe();
+            setIsEditing(false);
+        } else {
+            alert("Failed to update profile.");
+        }
+    } catch (e) {
+        console.error("Profile update error", e);
+    } finally {
+        setIsSaving(false);
+    }
   };
 
-  const initials = currentUser.name
+  if (!user) {
+      return <div className="text-center py-12">Loading profile...</div>;
+  }
+
+  const initials = (user.name || "User")
     .split(" ")
     .map((n) => n[0])
     .join("")
     .toUpperCase();
+
+  const handleLogout = async () => {
+    try {
+        await fetch("/api/auth/logout", { method: "POST" });
+        clearUser();
+        window.location.href = "/login";
+    } catch (e) {
+        console.error("Logout failed", e);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -70,26 +133,19 @@ export default function ProfilePage() {
           {/* Info */}
           <div className="flex-1 text-center sm:text-left">
             <h2 className="text-xl font-semibold text-neutral-900">
-              {currentUser.name}
+              {user.name}
             </h2>
             <p className="text-sm text-neutral-500 mt-0.5">
-              {currentUser.email}
+              {user.email}
             </p>
             <div className="flex items-center justify-center sm:justify-start gap-2 mt-2 text-xs text-neutral-500">
-              {currentUser.city && (
+              {prefs.city && (
                 <span className="flex items-center gap-1">
                   <MapPin className="w-3 h-3" />
-                  {currentUser.city}, {currentUser.country}
+                  {prefs.city}, {prefs.country}
                 </span>
               )}
             </div>
-            <p className="text-xs text-neutral-400 mt-2">
-              Member since{" "}
-              {new Date(currentUser.createdAt).toLocaleDateString("en-IN", {
-                month: "long",
-                year: "numeric",
-              })}
-            </p>
           </div>
 
           {/* Edit Toggle */}
@@ -131,8 +187,7 @@ export default function ProfilePage() {
             label="Email"
             type="email"
             value={form.email}
-            onChange={(e) => updateField("email", e.target.value)}
-            disabled={!isEditing}
+            disabled={true} // Email should not be editable easily
           />
 
           <Input
@@ -189,8 +244,10 @@ export default function ProfilePage() {
               </p>
             </div>
             <select
-              className="px-3 py-1.5 text-sm border border-neutral-300 rounded-lg bg-white text-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary"
-              defaultValue="en"
+              className="px-3 py-1.5 text-sm border border-neutral-300 rounded-lg bg-white text-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-70"
+              value={form.languagePreference}
+              onChange={(e) => updateField("languagePreference", e.target.value)}
+              disabled={!isEditing}
             >
               <option value="en">English</option>
               <option value="hi">Hindi</option>
@@ -208,8 +265,10 @@ export default function ProfilePage() {
               </p>
             </div>
             <select
-              className="px-3 py-1.5 text-sm border border-neutral-300 rounded-lg bg-white text-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary"
-              defaultValue="INR"
+              className="px-3 py-1.5 text-sm border border-neutral-300 rounded-lg bg-white text-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-70"
+              value={form.currency}
+              onChange={(e) => updateField("currency", e.target.value)}
+              disabled={!isEditing}
             >
               <option value="INR">INR (₹)</option>
               <option value="USD">USD ($)</option>
@@ -228,7 +287,13 @@ export default function ProfilePage() {
               </p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" defaultChecked className="sr-only peer" />
+              <input 
+                type="checkbox" 
+                checked={form.isPublicProfile}
+                onChange={(e) => updateField("isPublicProfile", e.target.checked)}
+                disabled={!isEditing} 
+                className="sr-only peer" 
+              />
               <div className="w-9 h-5 bg-neutral-200 peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
             </label>
           </div>
@@ -242,7 +307,7 @@ export default function ProfilePage() {
           Irreversible and destructive actions.
         </p>
         <div className="flex flex-col sm:flex-row gap-3">
-          <Button variant="ghost" size="sm" icon={<LogOut className="w-4 h-4" />}>
+          <Button variant="ghost" size="sm" icon={<LogOut className="w-4 h-4" />} onClick={handleLogout}>
             Log Out
           </Button>
           <Button

@@ -1,37 +1,50 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
-import TripCard from "@/components/trips/TripCard";
+import { Plus, MapPin, Calendar } from "lucide-react";
 import EmptyState from "@/components/ui/EmptyState";
-import { mockTrips } from "@/lib/mockData";
+import FilterBar from "@/components/ui/FilterBar";
+import FAB from "@/components/ui/FAB";
 
 type TabFilter = "all" | "upcoming" | "ongoing" | "completed" | "draft";
 
-const tabs: { key: TabFilter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "upcoming", label: "Upcoming" },
-  { key: "draft", label: "Drafts" },
-  { key: "completed", label: "Completed" },
-];
-
 export default function MyTripsPage() {
+  const [trips, setTrips] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredTrips = mockTrips.filter((trip) => {
+  useEffect(() => {
+    const fetchTrips = async () => {
+      try {
+        const res = await fetch("/api/trips");
+        if (res.ok) {
+           const data = await res.json();
+           setTrips(data.data || []);
+        }
+      } catch (error) {
+        console.error("Fetch trips error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchTrips();
+  }, []);
+
+  const filteredTrips = trips.filter((trip) => {
     // Filter by tab
-    if (activeTab === "upcoming" && trip.status !== "planned") return false;
-    if (activeTab === "draft" && trip.status !== "draft") return false;
-    if (activeTab === "completed" && trip.status !== "completed") return false;
+    if (activeTab === "upcoming" && (trip.status !== "PLANNED" && new Date(trip.startDate) > new Date())) return false;
+    if (activeTab === "draft" && trip.status !== "DRAFT") return false;
+    if (activeTab === "completed" && trip.status !== "COMPLETED") return false;
+    if (activeTab === "ongoing" && trip.status !== "ONGOING") return false;
 
     // Filter by search
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
         trip.name.toLowerCase().includes(q) ||
-        trip.stops.some((s) => s.place.name.toLowerCase().includes(q))
+        trip.stops?.some((s: any) => s.cityPlace?.name.toLowerCase().includes(q))
       );
     }
 
@@ -45,51 +58,77 @@ export default function MyTripsPage() {
         <h1 className="text-2xl font-bold text-neutral-900">My Trips</h1>
         <Link
           href="/trips/new"
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg"
+          className="hidden md:inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg"
         >
           <Plus className="w-4 h-4" />
           Plan New Trip
         </Link>
       </div>
 
-      {/* Search + Tabs */}
-      <div className="space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-          <input
-            type="text"
-            placeholder="Search trips..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full sm:w-80 pl-10 pr-4 py-2 text-sm rounded-lg border border-neutral-300 bg-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-          />
-        </div>
+      {/* Filter Bar */}
+      <FilterBar 
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search by name or destination..."
+        filterOptions={[
+            { label: "All Status", value: "all" },
+            { label: "Upcoming", value: "upcoming" },
+            { label: "Ongoing", value: "ongoing" },
+            { label: "Drafts", value: "draft" },
+            { label: "Completed", value: "completed" },
+        ]}
+        filterValue={activeTab}
+        onFilterChange={(v) => setActiveTab(v as TabFilter)}
+      />
 
-        <div className="flex gap-1 border-b border-neutral-200">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`
-                px-4 py-2 text-sm font-medium border-b-2 -mb-px
-                ${
-                  activeTab === tab.key
-                    ? "border-primary text-primary"
-                    : "border-transparent text-neutral-500 hover:text-neutral-700"
-                }
-              `}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Trip Grid */}
-      {filteredTrips.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Trip List View */}
+      {isLoading ? (
+         <div className="text-center py-12 text-neutral-500">Loading trips...</div>
+      ) : filteredTrips.length > 0 ? (
+        <div className="flex flex-col gap-4">
           {filteredTrips.map((trip) => (
-            <TripCard key={trip.id} trip={trip} />
+            <Link key={trip.id} href={`/trips/${trip.id}/view`} className="group">
+              <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition flex flex-col md:flex-row h-full md:h-32">
+                {/* Cover Image */}
+                <div className="w-full md:w-48 h-32 md:h-full flex-shrink-0 relative bg-neutral-100">
+                    {trip.coverPhotoUrl ? (
+                        <img src={trip.coverPhotoUrl} alt={trip.name} className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-neutral-400">
+                           <MapPin className="w-8 h-8 opacity-20" />
+                        </div>
+                    )}
+                    <div className="absolute top-2 left-2 px-2 py-1 bg-white/90 backdrop-blur-sm rounded-md text-xs font-semibold text-neutral-900">
+                        {trip.status}
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-4 flex-1 flex flex-col justify-center">
+                    <h3 className="text-lg font-bold text-neutral-900 group-hover:text-primary transition-colors">
+                        {trip.name}
+                    </h3>
+                    <div className="flex items-center gap-1.5 text-sm text-neutral-500 mt-1">
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span className="truncate">
+                          {trip.stops?.length > 0 
+                            ? trip.stops.map((s: any) => s.cityPlace?.name).filter(Boolean).join(" • ")
+                            : "No destinations added"}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-sm text-neutral-500 mt-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>
+                            {new Date(trip.startDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} - {new Date(trip.endDate).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="hidden md:flex p-4 items-center justify-end text-neutral-400 group-hover:text-primary transition-colors">
+                    <span className="text-sm font-medium">View details &rarr;</span>
+                </div>
+              </div>
+            </Link>
           ))}
         </div>
       ) : (
@@ -110,6 +149,8 @@ export default function MyTripsPage() {
           onAction={!searchQuery ? () => (window.location.href = "/trips/new") : undefined}
         />
       )}
+
+      <FAB href="/trips/new" label="Plan New Trip" />
     </div>
   );
 }
