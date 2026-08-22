@@ -31,9 +31,9 @@
 
 *Live. Add your row when you start; remove it when you stop/finish.*
 
-| Who (person or AI) | Working on | Started | Notes |
+| Working on | Started | Notes |
 |---|---|---|---|
-| — | — | — | *(none yet)* |
+| — | — | — | *(none currently)* |
 
 ---
 
@@ -43,7 +43,19 @@
 
 | Date | Who (person or AI) | What was completed | Files/modules | Notes |
 |---|---|---|---|---|
-| — | — | *(no entries yet)* | — | — |
+| 2026-08-22 | AI (Antigravity) | Phase 14: Admin dashboard (stats, popular cities, recent trips) | `src/app/(app)/admin/page.tsx` | Optional screen, mock data |
+| 2026-08-22 | AI (Antigravity) | Phase 13: Community page + shared trip public view | `src/app/(app)/community/page.tsx`, `src/app/shared/[token]/page.tsx` | Search, copy trip actions |
+| 2026-08-22 | AI (Antigravity) | Phase 12: Profile page (edit info, preferences, danger zone) | `src/app/(app)/profile/page.tsx` | Mock save, language/currency/public toggle |
+| 2026-08-22 | AI (Antigravity) | Phase 11: Calendar page (month grid + day detail sidebar) | `src/app/(app)/calendar/page.tsx` | Interactive month nav, trip/activity markers |
+| 2026-08-22 | AI (Antigravity) | Phase 10: Budget page (stats, pie chart, bar chart, category cards) | `src/app/(app)/trips/[tripId]/budget/page.tsx` | Uses recharts; over-budget indicators |
+| 2026-08-22 | AI (Antigravity) | Phase 9: Itinerary View (day-by-day + city-by-city toggle, timeline) | `src/app/(app)/trips/[tripId]/view/page.tsx` | Route header, activity blocks |
+| 2026-08-22 | AI (Antigravity) | Phase 7-8: Itinerary Builder + Activity Search modal | `src/app/(app)/trips/[tripId]/builder/page.tsx` | Expandable stops, add activity modal |
+| 2026-08-22 | AI (Antigravity) | Phase 6: Discover page (city search with region filters) | `src/app/(app)/discover/page.tsx` | Debounced search, filter chips |
+| 2026-08-22 | AI (Antigravity) | Phase 5: My Trips page (tab filters, search, grid) | `src/app/(app)/trips/page.tsx` | All/Upcoming/Drafts/Completed tabs |
+| 2026-08-22 | AI (Antigravity) | Phase 4: Create Trip page (form with validation) | `src/app/(app)/trips/new/page.tsx` | Name, dates, description |
+| 2026-08-22 | AI (Antigravity) | Phase 3: App layout + Dashboard | `src/app/(app)/layout.tsx`, `src/app/(app)/dashboard/page.tsx`, Sidebar, Navbar, TripCard, DestinationCard | Sidebar nav, mobile hamburger, stats cards |
+| 2026-08-22 | AI (Antigravity) | Phase 2: Login + Registration pages | `src/app/(auth)/login/page.tsx`, `src/app/(auth)/register/page.tsx` | Split layout, mock auth |
+| 2026-08-22 | AI (Antigravity) | Phase 1: Design system + UI components + types + mock data | `tailwind.config.ts`, `globals.css`, `layout.tsx`, `src/types/index.ts`, `src/lib/mockData.ts`, `src/components/ui/*` | Inter font, design tokens, Button/Input/Card/Modal/Badge/EmptyState/Skeleton/SearchBar |
 
 ---
 
@@ -53,19 +65,19 @@
 
 | Area | Status | Owner | Last updated |
 |---|---|---|---|
-| Repo scaffold + Prisma schema/migration | Not started | — | — |
-| Auth (register/login/refresh/reset) | Not started | — | — |
-| Screens 1–5 (auth, dashboard, trips list, create trip) | Not started | — | — |
-| Screens 6–7 (Itinerary Builder / View) | Not started | — | — |
-| Screens 8–9 (City / Activity Search) | Not started | — | — |
-| Screen 10 (Budget) | Not started | — | — |
-| Screen 11 (Calendar) | Not started | — | — |
-| Screen 12 (Shared + Community) | Not started | — | — |
-| Screen 13 (Profile) | Not started | — | — |
-| Screen 14 (Admin, optional) | Not started | — | — |
+| Repo scaffold + Prisma schema/migration | In progress | Manu | 2026-08-22 |
+| Auth (register/login/refresh/reset) | Done (UI only) | AI | 2026-08-22 |
+| Screens 1–5 (auth, dashboard, trips list, create trip) | Done (UI only) | AI | 2026-08-22 |
+| Screens 6–7 (Itinerary Builder / View) | Done (UI only) | AI | 2026-08-22 |
+| Screens 8–9 (City / Activity Search) | Done (UI only) | AI | 2026-08-22 |
+| Screen 10 (Budget) | Done (UI only) | AI | 2026-08-22 |
+| Screen 11 (Calendar) | Done (UI only) | AI | 2026-08-22 |
+| Screen 12 (Shared + Community) | Done (UI only) | AI | 2026-08-22 |
+| Screen 13 (Profile) | Done (UI only) | AI | 2026-08-22 |
+| Screen 14 (Admin, optional) | Done (UI only) | AI | 2026-08-22 |
 | API routes — all resources | Not started | — | — |
 | External integrations (Places, AI, Cloudinary) | Not started | — | — |
-| Design system / component library | Not started | — | — |
+| Design system / component library | Done | AI | 2026-08-22 |
 | Deployment | Not started | — | — |
 
 ---
@@ -74,7 +86,8 @@
 
 | Question | Raised by | Date | Status |
 |---|---|---|---|
-| — | — | — | *(none yet)* |
+| All screens use mock data — need backend API integration | AI | 2026-08-22 | Open |
+| Auth is UI-only — need JWT/session middleware | AI | 2026-08-22 | Open |
 
 ---
 
@@ -82,4 +95,5 @@
 
 | Name | Role / area |
 |---|---|
-| — | — |
+| Manu | Backend / Prisma / DB |
+| AI (Antigravity) | Frontend UI (all screens) |
